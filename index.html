@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Web Absen Kelas — GitHub Pages</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;}
+body{margin:0;background:#f5f7fb;color:#0f172a;}
+header{background:linear-gradient(90deg,#4f46e5,#06b6d4);color:white;padding:16px 20px}
+.container{max-width:1000px;margin:18px auto;padding:0 16px}
+h1{margin:0;font-size:20px}
+.card{background:white;border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(15,23,42,0.06);margin-top:16px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text],select,input[type=date]{padding:8px;border-radius:8px;border:1px solid #e6edf3}
+button{padding:8px 12px;border-radius:8px;border:0;background:#334155;color:white;cursor:pointer}
+button.ghost{background:transparent;color:#334155;border:1px solid #e6edf3}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{padding:8px;border-bottom:1px solid #eef2f7;text-align:left}
+th{background:#fbfdff}
+.status-btn{padding:6px 8px;border-radius:8px;border:0;cursor:pointer}
+.present{background:#10b981;color:white}
+.absent{background:#ef4444;color:white}
+.sick{background:#f59e0b;color:white}
+.flex{display:flex;gap:8px;align-items:center}
+@media (max-width:720px){.controls{flex-direction:column;align-items:stretch}.flex{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body>
+<header>
+<div class="container">
+<h1>Web Absen — XI IPS SOSHUM</h1>
+<div style="opacity:0.9;font-size:13px;margin-top:6px">Simpan di GitHub Pages untuk akses publik. Versi lokal sederhana (localStorage).</div>
+</div>
+</header>
+
+  <main class="container">
+<section class="card">
+<div class="controls">
+<div class="flex" style="flex:1">
+<input id="studentName" type="text" placeholder="Nama siswa — contoh: Budi" />
+<button id="addStudent">Tambah</button>
+</div>
+<div class="flex">
+<label for="absenDate">Tanggal:</label>
+<input id="absenDate" type="date" />
+</div>
+<div class="flex">
+<select id="selectClass">
+<option value="XI IPS SOSHUM">XI IPS SOSHUM</option>
+</select>
+</div>
+<div class="flex">
+<button id="exportCsv">Ekspor CSV</button>
+<button id="resetDate" class="ghost">Reset tanggal</button>
+</div>
+</div>
+
+
+<div id="studentsCard" style="margin-top:12px">
+<table id="studentsTable">
+<thead>
+<tr><th>No</th><th>Nama</th><th>Status</th><th>Aksi</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+<small style="opacity:0.7">Data disimpan di browser (localStorage) per repo. Untuk kolaborasi, hubungkan dengan backend.</small>
+<div style="display:flex;gap:8px">
+<button id="markAllPresent" class="present">Semua Hadir</button>
+<button id="markAllAbsent" class="absent">Semua Alfa</button>
+</div>
+</div>
+</section>
+
+
+<section class="card" id="summaryCard">
+<h3>Ringkasan</h3>
+<div id="summaryText">Pilih tanggal untuk melihat ringkasan.</div>
+</section>
+</main>
+
+  <script>
+// Simple attendance app using localStorage. Data schema in localStorage key: 'absen_kelas_v1'
+const KEY = 'absen_kelas_v1';
+
+
+function nowDateISO(){
+const d = new Date();
+const yyyy = d.getFullYear();
+const mm = String(d.getMonth()+1).padStart(2,'0');
+const dd = String(d.getDate()).padStart(2,'0');
+return `${yyyy}-${mm}-${dd}`;
+}
+
+
+const state = {students: [
+"ABI MANYU",
+"ADELLIA DEVIANA EKA PUTRI",
+"AGUSTIN WULANDARI",
+"AHMAD GALIH FULVIAN",
+"DENOK UMI CITRA DEWI",
+"DESI RATNA ANJANI",
+"DIRESYA FAJRASYIDA MAYNUHA",
+"DWI ARIS EDY PRASETYO",
+"FANNY AMELIA",
+"FARELLIO GISTYA PUTRA",
+"FERNITA ONY RAHMAWATI",
+"HISHSHAH AL ZAHRA SETIAWAN",
+"IFIA SULISTIA RINI",
+"JERICCO NANDO PRABADIAN PUTRANTO",
+"LAILY NUR ROHMAH",
+"LUTHFIYAH KHOIRUN NUR ROHMAWATI",
+"M. RADHO YODA PRATΑΜΑ",
+"MARSHA CHAIRANI",
+"MUHAMMAD ANDHIKA PUTRA",
+"MUTIARA ZAHRA WAHDANIA",
+"NABILATUN NADA",
+"NAZWA LAYLA AZLIN",
+"NOVELIANA ANJANI NUR AINI",
+"NOVI NIKMATUL NIKMАН",
+"NUKE OKTAVIA ANGGARA KASIH",
+"RISMA OKTAVIANI",
+"SELVY PUTRI AYUNINGSIHH",
+"SITI MUZARI'AH",
+"VITRI NOVITA SARI",
+"ZAINAL ABIDIN",
+"ZALFA RIZQI SABILA"
+], records: {}}; // records: { '2025-11-28': { 'Nama': 'present' } }
+
+    function load(){
+const raw = localStorage.getItem(KEY);
+if(raw){
+try{Object.assign(state, JSON.parse(raw));}catch(e){console.error('gagal parse',e)}
+}
+}
+function save(){
+localStorage.setItem(KEY, JSON.stringify(state));
+}
+
+
+// elements
+const studentName = document.getElementById('studentName');
+const addStudentBtn = document.getElementById('addStudent');
+const studentsTableBody = document.querySelector('#studentsTable tbody');
+const absenDate = document.getElementById('absenDate');
+const summaryText = document.getElementById('summaryText');
+const exportCsvBtn = document.getElementById('exportCsv');
+const resetDateBtn = document.getElementById('resetDate');
+const markAllPresent = document.getElementById('markAllPresent');
+const markAllAbsent = document.getElementById('markAllAbsent');
+
+    function render(){
+studentsTableBody.innerHTML='';
+const date = absenDate.value || nowDateISO();
+const rec = state.records[date] || {};
+state.students.forEach((s, idx)=>{
+const tr = document.createElement('tr');
+tr.innerHTML = `<td>${idx+1}</td><td>${escapeHtml(s)}</td><td id='st-${idx}'>${rec[s] || '-'}</td><td></td>`;
+const actions = document.createElement('td');
+const presentBtn = document.createElement('button'); presentBtn.textContent='Hadir'; presentBtn.className='status-btn present';
+const absentBtn = document.createElement('button'); absentBtn.textContent='Alfa'; absentBtn.className='status-btn absent';
+const sickBtn = document.createElement('button'); sickBtn.textContent='Izin'; sickBtn.className='status-btn sick';
+const delBtn = document.createElement('button'); delBtn.textContent='Hapus'; delBtn.className='ghost';
+presentBtn.onclick = ()=>{setStatus(s,date,'present');}
+absentBtn.onclick = ()=>{setStatus(s,date,'absent');}
+sickBtn.onclick = ()=>{setStatus(s,date,'sick');}
+delBtn.onclick = ()=>{deleteStudent(s);}
+const td = tr.querySelector('td:last-child');
+td.appendChild(presentBtn); td.appendChild(absentBtn); td.appendChild(sickBtn); td.appendChild(delBtn);
+studentsTableBody.appendChild(tr);
+});
+updateSummary();
+}
+
+    function escapeHtml(text){return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+
+function addStudent(){
+const name = studentName.value.trim();
+if(!name) return alert('Nama tidak boleh kosong');
+if(state.students.includes(name)) return alert('Nama sudah ada');
+state.students.push(name);
+save(); render(); studentName.value='';
+}
+function deleteStudent(name){
+if(!confirm('Hapus siswa: '+name+' ?')) return;
+state.students = state.students.filter(s=>s!==name);
+// remove from records
+for(const d in state.records){ delete state.records[d][name]; }
+save(); render();
+}
+
+
+function setStatus(name,date,status){
+if(!state.records[date]) state.records[date] = {};
+state.records[date][name] = status;
+save(); render();
+}
+
+    function updateSummary(){
+const date = absenDate.value || nowDateISO();
+const rec = state.records[date] || {};
+const total = state.students.length;
+const hadir = Object.values(rec).filter(x=>x==='present').length;
+const izin = Object.values(rec).filter(x=>x==='sick').length;
+const alfa = Object.values(rec).filter(x=>x==='absent').length;
+summaryText.innerHTML = `Tanggal: <strong>${date}</strong> — Total siswa: ${total}. Hadir: ${hadir}. Izin: ${izin}. Alfa: ${alfa}.`;
+}
+
+
+function exportCsv(){
+const date = absenDate.value || nowDateISO();
+const rec = state.records[date] || {};
+let csv = 'Nama,Status,Tanggal\n';
+state.students.forEach(s=>{
+const st = rec[s] || '';
+csv += `"${s}","${st}","${date}"\n`;
+});
+const blob = new Blob([csv],{type:'text/csv'});
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a'); a.href=url; a.download = `absen_${date}.csv`; document.body.appendChild(a); a.click(); a.remove();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+    function resetDate(){
+const date = absenDate.value || nowDateISO();
+if(confirm('Reset data absen untuk tanggal '+date+' ?')){
+delete state.records[date]; save(); render();
+}
+}
+
+
+function markAll(status){
+const date = absenDate.value || nowDateISO();
+if(!state.records[date]) state.records[date] = {};
+state.students.forEach(s=> state.records[date][s] = status);
+save(); render();
+}
+
+
+// events
+addStudentBtn.addEventListener('click', addStudent);
+studentName.addEventListener('keydown', e=>{ if(e.key==='Enter') addStudent(); });
+absenDate.addEventListener('change', render);
+exportCsvBtn.addEventListener('click', exportCsv);
+resetDateBtn.addEventListener('click', resetDate);
+markAllPresent.addEventListener('click', ()=>markAll('present'));
+markAllAbsent.addEventListener('click', ()=>markAll('absent'));
+
+    // initialize
+load();
+if(!absenDate.value) absenDate.value = nowDateISO();
+render();
+
+
+// expose for debugging
+window._ABSEN = state;
+</script>
+</body>
+</html>
